@@ -51,7 +51,7 @@ app.use('/uploads', express.static('uploads'));
 // ✅ Set up Socket.IO with CORS
 const io = socketIo(server, {
   cors: {
-    origin: "https://social-frontend-five.vercel.app/",
+    origin: "https://social-frontend-five.vercel.app",
     methods: ["GET", "POST"],
     allowedHeaders: ["Content-Type"],
     credentials: true
