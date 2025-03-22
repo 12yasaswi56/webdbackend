@@ -25,7 +25,7 @@ app.use(morgan('dev'));
 
 // ✅ CORS middleware for Express
 app.use(cors({
-  origin: "http://localhost:3000",
+  origin: "https://social-backend-1-qi8q.onrender.com/",
   credentials: true
 }));
 
