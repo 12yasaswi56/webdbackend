@@ -25,7 +25,7 @@ app.use(morgan('dev'));
 
 // ✅ CORS middleware for Express
 app.use(cors({
-  origin: "https://social-backend-1-qi8q.onrender.com/",
+  origin: "https://social-frontend-five.vercel.app",
   credentials: true
 }));
 
