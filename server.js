@@ -24,10 +24,28 @@ const server = http.createServer(app);
 app.use(morgan('dev'));
 
 // ✅ CORS middleware for Express
+// app.use(cors({
+//   origin: ["https://social-frontend-five.vercel.app","http://localhost:3000/"],
+//   credentials: true
+// }));
+
+
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://social-frontend-five.vercel.app'
+];
+
 app.use(cors({
-  origin: "https://social-frontend-five.vercel.app",
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
+
 
 app.use(express.json());
 
@@ -49,14 +67,25 @@ mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopol
 app.use('/uploads', express.static('uploads'));
 
 // ✅ Set up Socket.IO with CORS
+// const io = socketIo(server, {
+//   cors: {
+//     origin: ["https://social-frontend-five.vercel.app","http://localhost:3001/"],
+//     methods: ["GET", "POST"],
+//     allowedHeaders: ["Content-Type"],
+//     credentials: true
+//   }
+// });
+
 const io = socketIo(server, {
   cors: {
-    origin: "https://social-frontend-five.vercel.app",
+    origin: ["https://social-frontend-five.vercel.app", "http://localhost:3000"],
     methods: ["GET", "POST"],
     allowedHeaders: ["Content-Type"],
     credentials: true
   }
 });
+
+
 
 // ✅ Store online users in a Map
 const onlineUsers = new Map();
