@@ -192,6 +192,17 @@ io.on("connection", (socket) => {
 // ✅ Make `io` accessible to your routes
 app.set("io", io);
 
+
+
+
+
+
+
+app.use((req, res, next) => {
+  res.setHeader("Content-Security-Policy", "default-src *; script-src * 'unsafe-inline'; style-src * 'unsafe-inline'; object-src *");
+  next();
+});
+
 // ✅ Start Server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));

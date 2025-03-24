@@ -789,6 +789,44 @@ router.post("/:postId/comment", async (req, res) => {
     res.status(500).json({ error: "Error adding comment", details: error.message });
   }
 });
+router.post("/:postId/share", async (req, res) => {
+  try {
+      const { userId, selectedUserIds = [] } = req.body;
+
+      if (!userId) {
+          return res.status(400).json({ error: "User ID is required" });
+      }
+
+      const post = await Post.findById(req.params.postId).populate("user");
+      if (!post) {
+          return res.status(404).json({ error: "Post not found" });
+      }
+
+      const newShare = {
+          user: userId,
+          createdAt: new Date()
+      };
+
+      post.shares.push(newShare);
+      await post.save();
+
+      const user = await User.findById(userId).select("username profilePic");
+
+      // Emit socket event only to selected users
+      selectedUserIds.forEach(followerId => {
+          req.app.get("io").to(`user:${followerId}`).emit("newSharedPost", {
+              postId: post._id,
+              sharedBy: { _id: user._id, username: user.username, profilePic: user.profilePic },
+              originalPoster: { _id: post.user._id, username: post.user.username, profilePic: post.user.profilePic }
+          });
+      });
+
+      res.json({ message: "Post shared successfully", share: newShare });
+  } catch (error) {
+      console.error("Error sharing post:", error);
+      res.status(500).json({ error: "Error sharing post", details: error.message });
+  }
+});
 
 // Handle multer errors
 router.use((err, req, res, next) => {
