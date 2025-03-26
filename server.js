@@ -64,7 +64,12 @@ mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopol
   .then(() => console.log("✅ MongoDB Connected"))
   .catch(err => console.error("❌ MongoDB Connection Error:", err));
 
-app.use('/uploads', express.static('uploads'));
+// app.use('/uploads', express.static('uploads'));
+
+app.use('/uploads', (req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*'); // or set allowed frontend domain
+  next();
+}, express.static(path.join(__dirname, 'uploads')));
 
 // ✅ Set up Socket.IO with CORS
 // const io = socketIo(server, {
