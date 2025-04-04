@@ -19,6 +19,7 @@
 
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const Schema = mongoose.Schema;
 
 const UserSchema = new mongoose.Schema({
   username: {
@@ -58,11 +59,22 @@ const UserSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }],
+  savedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }],
   isPrivate: {
     type: Boolean,
     default: false
   },
   cometchatUID: { type: String, unique: true }
+}, {
+  resetPasswordToken: {
+    type: String,
+    default: null
+  },
+  resetPasswordExpires: {
+    type: Date,
+    default: null
+  },
+  
 }, {
   timestamps: true
 });
@@ -83,6 +95,27 @@ UserSchema.pre('save', async function(next) {
 // Compare password method
 UserSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
+};
+
+
+
+
+
+// Method to generate reset token
+UserSchema.methods.generatePasswordResetToken = function() {
+  // Generate a random token
+  const resetToken = require('crypto').randomBytes(32).toString('hex');
+  
+  // Set token and expiration
+  this.resetPasswordToken = require('crypto')
+    .createHash('sha256')
+    .update(resetToken)
+    .digest('hex');
+  
+  // Token expires in 10 minutes
+  this.resetPasswordExpires = Date.now() + 10 * 60 * 1000;
+  
+  return resetToken;
 };
 
 module.exports = mongoose.model('User', UserSchema);

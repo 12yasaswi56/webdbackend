@@ -16,7 +16,7 @@ const conversationsRoutes = require('./routes/conversations');
 const messagesRoutes = require('./routes/messages');
 const profileRoutes = require('./routes/profileRoutes');
 const notificationRoutes = require("./routes/notificationRoutes");
-
+const uploadRoutes = require('./routes/uploads');
 dotenv.config();
 
 const app = express();
@@ -58,7 +58,7 @@ app.use('/api/conversations', conversationsRoutes);
 app.use('/api/messages', messagesRoutes);
 app.use('/api/profile', profileRoutes);
 app.use("/api/notifications", notificationRoutes);
-
+app.use('/api/uploads', uploadRoutes);
 // ✅ Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log("✅ MongoDB Connected"))
@@ -85,7 +85,7 @@ const io = socketIo(server, {
   cors: {
     origin: ["https://social-frontend-five.vercel.app", "http://localhost:3000"],
     methods: ["GET", "POST"],
-    allowedHeaders: ["Content-Type"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-auth-token"],
     credentials: true
   }
 });
@@ -96,12 +96,14 @@ const io = socketIo(server, {
 const onlineUsers = new Map();
 
 // ✅ Function to Send Notifications - Defined outside so it's accessible throughout the app
-const sendNotification = async (receiverId, senderId, message, senderPic) => {
+// ✅ Function to Send Notifications - Defined outside so it's accessible throughout the app
+const sendNotification = async (receiverId, senderId, message, senderPic, type, postId = null, commentId = null) => {
   try {
     // Check for existing similar notification in the last 2 minutes to prevent duplicates
     const existingNotification = await Notification.findOne({
       userId: receiverId,
       senderId: senderId,
+      type: type,
       message: message,
       createdAt: { $gt: new Date(Date.now() - 2 * 60 * 1000) } // Within last 2 minutes
     });
@@ -116,7 +118,10 @@ const sendNotification = async (receiverId, senderId, message, senderPic) => {
       userId: receiverId, 
       senderId, 
       message, 
-      senderPic 
+      type,
+      senderPic,
+      postId,
+      commentId
     });
     await notification.save();
 
@@ -134,6 +139,9 @@ const sendNotification = async (receiverId, senderId, message, senderPic) => {
           profilePic: sender ? sender.profilePic : senderPic
         },
         message: message,
+        type: type,
+        postId: postId,
+        commentId: commentId,
         createdAt: notification.createdAt
       };
       
@@ -143,6 +151,8 @@ const sendNotification = async (receiverId, senderId, message, senderPic) => {
     } else {
       console.log(`User ${receiverId} is offline, notification saved to database only`);
     }
+
+    return notification;
   } catch (error) {
     console.error("Error sending notification:", error);
   }

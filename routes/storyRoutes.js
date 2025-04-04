@@ -290,6 +290,7 @@ router.post('/:id/view', auth, async (req, res) => {
 });
 
 // DELETE a story
+// DELETE a story
 router.delete('/:id', auth, async (req, res) => {
   try {
     const storyId = req.params.id;

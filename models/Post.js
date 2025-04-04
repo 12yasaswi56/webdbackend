@@ -51,11 +51,24 @@ const PostSchema = new mongoose.Schema({
   fileType: { type: String, enum: ['image', 'pdf'], default: 'image' }, // To distinguish between images and PDFs
   likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   comments: [CommentSchema],
+  taggedUsers: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User', // This allows population
+    // populate: {
+    //   select: 'username profilePic' // Specify which user fields to include
+    // }
+  }],
   shares: [{ 
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     shareType: String,
     createdAt: { type: Date, default: Date.now }
   }],
+  location: {
+    type: String, // Store location as a string (city, country, etc.)
+    required: false
+  },
+  
+
   createdAt: { type: Date, default: Date.now }
 });
 

@@ -328,6 +328,8 @@ const Post = require('../models/Post');
 const mongoose = require('mongoose');
 const multer = require('multer');
 
+
+
 // Multer config for profile picture uploads
 const storage = multer.diskStorage({
   destination: './uploads/',
@@ -568,5 +570,7 @@ router.get('/:id/following', auth, async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
+
+
 
 module.exports = router;

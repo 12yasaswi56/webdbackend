@@ -16,7 +16,7 @@ module.exports = async function(req, res, next) {
     
     // Add user from payload
     req.user = { id: decoded.id, _id: decoded.id };
-    
+    console.log('User ID from token:', req.user.id);
     next();
   
 

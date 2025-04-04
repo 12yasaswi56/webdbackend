@@ -7,6 +7,10 @@ const ConversationSchema = new Schema({
     type: Schema.Types.ObjectId,
     ref: 'User'
   }],
+  latestMessage: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Message'
+  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -15,6 +19,10 @@ const ConversationSchema = new Schema({
     type: Date,
     default: Date.now
   }
+},
+  {
+    timestamps: true,
+    strictPopulate: false // Add this to prevent the strict populate error
 });
 
 module.exports = mongoose.model('Conversation', ConversationSchema);

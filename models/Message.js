@@ -46,14 +46,29 @@ const messageSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  media: [{
+    type: {
+      type: String,
+      enum: ['image', 'video', 'document','audio'], // 'image', 'video', 'document'
+      required: true
+    },
+    url: {
+      type: String,
+      required: true
+    },
+    thumbnail: String, // For videos
+    duration: Number,
+    filename: String, // Original filename
+    size: Number // File size in bytes
+  }],
   // Add post reference for shared posts
   postReference: {
-    postId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Post'
-    },
+    postId: { type: mongoose.Schema.Types.ObjectId, ref: 'Post' },
     imageUrl: String,
-    caption: String
+    caption: String,
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    username: String,
+    userProfilePic: String
   },
   createdAt: {
     type: Date,
