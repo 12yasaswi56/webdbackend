@@ -56,12 +56,31 @@ router.post('/', async (req, res) => {
     }
 
     // Create message object with all fields
+    // const messageData = {
+    //   conversationId,
+    //   senderId,
+    //   content: content || '',
+    //   media: media || []
+    // };
     const messageData = {
       conversationId,
       senderId,
       content: content || '',
-      media: media || []
+      media: (media || []).map(file => ({
+        url: file.url,
+        type: file.type,
+        filename: file.filename || file.url.split('/').pop(),
+        duration: file.duration // Add duration if available
+      }))
     };
+ // Ensure media array has proper structure
+ if (messageData.media && messageData.media.length > 0) {
+  messageData.media = messageData.media.map(file => ({
+    url: file.url,
+    type: file.type,
+    filename: file.filename || path.basename(file.url)
+  }));
+}
 
     // Add postReference if provided
     if (postReference && postReference.postId) {
