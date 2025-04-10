@@ -64,6 +64,10 @@ const UserSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  isPublic: {
+    type: Boolean,
+    default: true
+  },
   cometchatUID: { type: String, unique: true }
 }, {
   resetPasswordToken: {

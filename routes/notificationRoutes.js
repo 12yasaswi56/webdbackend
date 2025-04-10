@@ -9,7 +9,7 @@ router.get("/", authMiddleware, async (req, res) => {
         const notifications = await Notification.find({ userId: req.user.id })
             .populate({
                 path: "senderId",
-                select: "username profilePic"
+                select: "username profilePic _id"
             })
             .populate({
                 path: "postId",
@@ -53,4 +53,33 @@ router.get("/unread-count", authMiddleware, async (req, res) => {
     }
 });
 
+
+
+// Create a new notification (for testing or manual creation)
+router.post("/", authMiddleware, async (req, res) => {
+    try {
+        const { userId, senderId, type, message, postId, commentId } = req.body;
+        
+        const newNotification = new Notification({
+            userId,
+            senderId,
+            type,
+            message,
+            postId,
+            commentId,
+            isRead: false
+        });
+
+        await newNotification.save();
+        
+        // Emit socket event
+        const io = req.app.get('io');
+        io.to(`user:${userId}`).emit('newNotification', newNotification);
+
+        res.status(201).json(newNotification);
+    } catch (error) {
+        console.error("Error creating notification:", error);
+        res.status(500).json({ error: "Failed to create notification" });
+    }
+});
 module.exports = router;

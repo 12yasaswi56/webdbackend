@@ -110,6 +110,29 @@ router.post('/', async (req, res) => {
     });
 
     // Emit socket event with full message data
+    const io = req.app.get('io');
+    io.to(conversationId).emit('newMessage', populatedMessage);
+
+    // Emit notification to recipient(s)
+    const conversation = await Conversation.findById(conversationId)
+      .populate('participants', '_id');
+    
+    // Find recipients (excluding sender)
+    const recipients = conversation.participants.filter(
+      p => p._id.toString() !== senderId
+    );
+    
+    // Create and emit notifications
+    recipients.forEach(recipient => {
+      io.to(`user:${recipient._id}`).emit('newNotification', {
+        type: 'message',
+        sender: populatedMessage.senderId,
+        message: populatedMessage.content || 'New message',
+        conversationId,
+        messageId: populatedMessage._id
+      });
+    });
+    // Emit socket event with full message data
     req.app.get('io').to(conversationId).emit('newMessage', populatedMessage);
 
     res.status(201).json(populatedMessage);
@@ -234,4 +257,76 @@ router.delete('/unsend/:messageId', async (req, res) => {
   }
 });
 
+
+// Mark messages as read
+router.post('/mark-read', async (req, res) => {
+  try {
+    const { conversationId, userId } = req.body;
+    
+    await Message.updateMany(
+      { 
+        conversationId, 
+        senderId: { $ne: userId },
+        read: false 
+      },
+      { $set: { read: true } }
+    );
+    
+    res.status(200).json({ success: true });
+  } catch (err) {
+    console.error('Error marking messages as read:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Get unread counts for all conversations
+router.get('/conversations/unread', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    
+    const conversations = await Conversation.find({
+      participants: userId
+    }).populate('participants', 'username profilePic');
+    
+    const unreadCounts = {};
+    
+    for (const conv of conversations) {
+      const count = await Message.countDocuments({
+        conversationId: conv._id,
+        senderId: { $ne: userId },
+        read: false
+      });
+      unreadCounts[conv._id] = count;
+    }
+    
+    res.status(200).json(unreadCounts);
+  } catch (err) {
+    console.error('Error getting unread counts:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/react', async (req, res) => {
+  try {
+    const { messageId, userId, reaction } = req.body;
+    
+    const message = await Message.findById(messageId);
+    if (!message) return res.status(404).json({ error: 'Message not found' });
+    
+    // Update reaction
+    message.reactions.set(userId, reaction);
+    await message.save();
+    
+    // Emit socket event
+    req.app.get('io').to(message.conversationId.toString()).emit('messageReaction', {
+      messageId,
+      reactions: Object.fromEntries(message.reactions)
+    });
+    
+    res.status(200).json({ success: true });
+  } catch (err) {
+    console.error('Error reacting to message:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 module.exports = router;

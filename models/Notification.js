@@ -36,7 +36,8 @@ const notificationSchema = new mongoose.Schema({
             'mention', 
             'tag', 
             'story_like', 
-            'post_comment'
+            'post_comment',
+            'save'
         ], 
         required: true 
     },

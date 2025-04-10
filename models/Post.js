@@ -46,8 +46,9 @@ const PostSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   caption: String,
   title: String,  // Added for research paper title
-  description: String,  // Added for research paper description
-  image: String,  // This will store the path to the file (image or PDF)
+  description: String, 
+   // Added for research paper description
+  images: [{ type: String }], // Array of image URLs // This will store the path to the file (image or PDF)
   fileType: { type: String, enum: ['image', 'pdf'], default: 'image' }, // To distinguish between images and PDFs
   likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   comments: [CommentSchema],
@@ -64,11 +65,16 @@ const PostSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
   }],
   location: {
-    type: String, // Store location as a string (city, country, etc.)
-    required: false
+    name: String,
+    coordinates: {
+      type: [Number], // [longitude, latitude]
+      index: '2dsphere'
+    }
   },
-  
-
+  media: [{
+    url: String,
+    type: { type: String, enum: ['image', 'pdf'] }
+  }],
   createdAt: { type: Date, default: Date.now }
 });
 

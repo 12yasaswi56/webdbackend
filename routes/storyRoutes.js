@@ -587,4 +587,35 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
+
+
+// GET viewers of a specific story
+router.get('/:id/viewers', auth, async (req, res) => {
+  try {
+    const storyId = req.params.id;
+    
+    // Find the story and populate the viewers with their profile info
+    const story = await Story.findById(storyId)
+      .populate('viewers', 'username profilePic')
+      .select('viewers');
+    
+    if (!story) {
+      return res.status(404).json({ error: 'Story not found' });
+    }
+    
+    // Check if the user is the owner of the story
+    const storyOwner = await Story.findById(storyId).select('user');
+    if (storyOwner.user.toString() !== req.user.id) {
+      return res.status(403).json({ error: 'Not authorized to view this information' });
+    }
+    
+    res.status(200).json({
+      count: story.viewers.length,
+      viewers: story.viewers
+    });
+  } catch (error) {
+    console.error('Error fetching story viewers:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 module.exports = router;

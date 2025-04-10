@@ -70,6 +70,15 @@ const messageSchema = new mongoose.Schema({
     username: String,
     userProfilePic: String
   },
+  read: {
+    type: Boolean,
+    default: false
+  },
+  reactions: {
+    type: Map,
+    of: String,
+    default: {}
+  },
   createdAt: {
     type: Date,
     default: Date.now
