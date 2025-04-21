@@ -45,6 +45,22 @@ router.get('/search', async (req, res) => {
   }
 });
 
+// routes/users.js
+router.get('/followers/:userId', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId)
+      .populate('followers', 'username profilePic');
+      
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    res.status(200).json(user.followers);
+  } catch (err) {
+    console.error('Error fetching followers:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 
 

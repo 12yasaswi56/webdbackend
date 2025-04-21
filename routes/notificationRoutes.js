@@ -63,6 +63,7 @@ router.post("/", authMiddleware, async (req, res) => {
         const newNotification = new Notification({
             userId,
             senderId,
+            
             type,
             message,
             postId,

@@ -1469,8 +1469,6 @@ const storage = new CloudinaryStorage({
   }
 });
 
-
-
 // Updated file filter to accept images and PDFs
 const fileFilter = (req, file, cb) => {
   // Accept image files and PDF files
@@ -1867,7 +1865,7 @@ router.post("/:postId/comment", async (req, res) => {
 
 router.post("/:postId/share", async (req, res) => {
   try {
-    const { userId, selectedUserIds = [] } = req.body;
+    const { userId, selectedUserIds = [],postReference } = req.body;
 
     if (!userId) {
       return res.status(400).json({ error: "User ID is required" });
@@ -1892,9 +1890,11 @@ router.post("/:postId/share", async (req, res) => {
     const user = await User.findById(userId).select("username profilePic");
 
     // Create complete post reference data - no need to modify image URL since it's already a Cloudinary URL
-    const postReference = {
+     // Create complete post reference data
+      // Create complete post reference data
+    const completePostReference = {
       postId: post._id,
-      imageUrl: post.image,
+      imageUrl: postReference?.imageUrl || post.images?.[0] || post.image || null,
       caption: post.caption,
       userId: post.user._id,
       username: post.user.username,

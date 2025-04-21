@@ -344,19 +344,26 @@ const cloudinary = require('../cloudinary');
 
 
 // Configure Cloudinary storage for multer
+// Configure Cloudinary storage for multer
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
-  params: {
-    folder: 'stories', // Cloudinary folder where you want to store stories
-    allowed_formats: ['jpg', 'jpeg', 'png', 'mp4', 'mov'],
-    resource_type: 'auto', // auto-detect whether the uploaded file is an image or video
-    transformation: [{ quality: 'auto' }] // Apply automatic quality optimization
+  params: (req, file) => {
+    return {
+      folder: 'stories',
+      allowed_formats: ['jpg', 'jpeg', 'png', 'mp4', 'mov'],
+      resource_type: file.mimetype.startsWith('video/') ? 'video' : 'image',
+      transformation: [{ quality: 'auto' }],
+      public_id: `${req.user.id}-${Date.now()}` // Unique filename
+    };
   }
 });
 
 const upload = multer({ 
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max file size
+  limits: { 
+    fileSize: 10 * 1024 * 1024, // 10MB max file size
+    files: 1 // Only allow single file upload
+  },
   fileFilter: (req, file, cb) => {
     // Accept images and videos only
     if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
@@ -523,8 +530,25 @@ router.post('/', auth, upload.single('file'), async (req, res) => {
     
     res.status(201).json(story);
   } catch (error) {
-    console.error('Error creating story:', error);
-    res.status(500).json({ error: 'Server error' });
+    console.error('Detailed story creation error:', {
+      message: error.message,
+      stack: error.stack
+    });
+    
+    // Clean up failed Cloudinary upload if possible
+    if (req.file?.path) {
+      try {
+        const publicId = req.file.path.split('/').slice(-1)[0].split('.')[0];
+        await cloudinary.uploader.destroy(publicId);
+      } catch (cleanupError) {
+        console.error('Failed to cleanup Cloudinary upload:', cleanupError);
+      }
+    }
+    
+    res.status(500).json({ 
+      error: 'Failed to create story',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
@@ -594,27 +618,72 @@ router.get('/:id/viewers', auth, async (req, res) => {
   try {
     const storyId = req.params.id;
     
-    // Find the story and populate the viewers with their profile info
+    // Find the story
     const story = await Story.findById(storyId)
       .populate('viewers', 'username profilePic')
-      .select('viewers');
+      .select('viewers user');
     
     if (!story) {
       return res.status(404).json({ error: 'Story not found' });
     }
     
     // Check if the user is the owner of the story
-    const storyOwner = await Story.findById(storyId).select('user');
-    if (storyOwner.user.toString() !== req.user.id) {
+    if (story.user.toString() !== req.user.id) {
       return res.status(403).json({ error: 'Not authorized to view this information' });
     }
     
+    // Filter out duplicates based on _id and exclude the story owner
+    const uniqueViewers = [];
+    const viewerIds = new Set();
+    
+    story.viewers.forEach(viewer => {
+      const viewerId = viewer._id.toString();
+      // Only add if not already in the set and not the story owner
+      if (!viewerIds.has(viewerId) && viewerId !== req.user.id) {
+        viewerIds.add(viewerId);
+        uniqueViewers.push(viewer);
+      }
+    });
+    
     res.status(200).json({
-      count: story.viewers.length,
-      viewers: story.viewers
+      count: uniqueViewers.length,
+      viewers: uniqueViewers
     });
   } catch (error) {
     console.error('Error fetching story viewers:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+
+// POST mark a story as viewed
+router.post('/:id/view', auth, async (req, res) => {
+  try {
+    const storyId = req.params.id;
+    const userId = req.user.id;
+    
+    // Find the story
+    const story = await Story.findById(storyId);
+    if (!story) {
+      return res.status(404).json({ error: 'Story not found' });
+    }
+    
+    // Don't add the story owner to viewers list
+    if (story.user.toString() === userId) {
+      return res.status(200).json({ success: true });
+    }
+    
+    // Check if user has already viewed the story
+    if (!story.viewers.includes(userId)) {
+      // Add user to viewers
+      story.viewers.push(userId);
+      await story.save();
+    }
+    
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('Error marking story as viewed:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });

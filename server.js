@@ -17,6 +17,7 @@ const messagesRoutes = require('./routes/messages');
 const profileRoutes = require('./routes/profileRoutes');
 const notificationRoutes = require("./routes/notificationRoutes");
 const uploadRoutes = require('./routes/uploads');
+const reelRoutes = require('./routes/reelRoutes');
 dotenv.config();
 
 const app = express();
@@ -59,6 +60,8 @@ app.use('/api/messages', messagesRoutes);
 app.use('/api/profile', profileRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use('/api/uploads', uploadRoutes);
+app.use('/api/reels', reelRoutes);
+
 // ✅ Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log("✅ MongoDB Connected"))
@@ -209,6 +212,22 @@ io.on("connection", (socket) => {
     }
   });
 
+   // Call handlers
+   socket.on('startCall', ({ conversationId, caller, type }) => {
+    socket.to(conversationId).emit('incomingCall', { caller, type });
+  });
+  
+  socket.on('acceptCall', ({ conversationId }) => {
+    socket.to(conversationId).emit('callAccepted');
+  });
+  
+  socket.on('rejectCall', ({ conversationId }) => {
+    socket.to(conversationId).emit('callRejected');
+  });
+  
+  socket.on('endCall', ({ conversationId }) => {
+    socket.to(conversationId).emit('callEnded');
+  });
   // ✅ Handle reconnection
   socket.on("reconnect", (userId) => {
     if (userId) {

@@ -7,6 +7,26 @@ const ConversationSchema = new Schema({
     type: Schema.Types.ObjectId,
     ref: 'User'
   }],
+  isGroup: {
+    type: Boolean,
+    default: false
+  },
+  groupName: {
+    type: String,
+    default: ''
+  },
+  groupAdmin: {
+    type: Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  groupImage: {
+    type: String,
+    default: ''
+  },
+  groupTheme: {
+    type: String,
+    default: '#1976d2' // Default blue color
+  },
   latestMessage: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Message'

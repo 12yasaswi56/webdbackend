@@ -48,6 +48,7 @@ const PostSchema = new mongoose.Schema({
   title: String,  // Added for research paper title
   description: String, 
    // Added for research paper description
+   image: String,
   images: [{ type: String }], // Array of image URLs // This will store the path to the file (image or PDF)
   fileType: { type: String, enum: ['image', 'pdf'], default: 'image' }, // To distinguish between images and PDFs
   likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],

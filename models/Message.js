@@ -82,6 +82,21 @@ const messageSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now
+  },
+  callLog: {
+    type: {
+      type: String,
+      enum: ['audio', 'video'],
+    },
+    duration: Number, // in seconds
+    participants: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    }],
+    status: {
+      type: String,
+      enum: ['missed', 'completed', 'rejected'],
+    }
   }
 });
 

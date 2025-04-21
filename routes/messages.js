@@ -36,14 +36,16 @@ router.get('/:conversationId', async (req, res) => {
 
 
 // routes/messages.js
+// Update the validation in your POST '/' route
 router.post('/', async (req, res) => {
   try {
-    const { conversationId, senderId, content,media, postReference } = req.body;
+    const { conversationId, senderId, content, media, postReference } = req.body;
     
     console.log('Received message data:', {
       conversationId,
       senderId,
       content,
+      media: media ? `${media.length} items` : 'none',
       postReference: postReference || 'none'
     });
 
@@ -51,36 +53,35 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Required fields missing' });
     }
 
-    if (!content && (!media || media.length === 0) && !postReference) {
-      return res.status(400).json({ error: 'Message must have content, media, or post reference' });
+    // FIXED VALIDATION: This checks if at least one of content, media, or postReference exists
+    if (
+      (!content || content.trim() === '') && 
+      (!media || !Array.isArray(media) || media.length === 0) && 
+      !postReference
+    ) {
+      return res.status(400).json({ 
+        error: 'Message must have content, media, or post reference',
+        code: 'EMPTY_MESSAGE' // Add a specific error code
+      });
     }
 
     // Create message object with all fields
-    // const messageData = {
-    //   conversationId,
-    //   senderId,
-    //   content: content || '',
-    //   media: media || []
-    // };
     const messageData = {
       conversationId,
       senderId,
       content: content || '',
-      media: (media || []).map(file => ({
+      media: []
+    };
+
+    // Only process media if it exists and is an array
+    if (media && Array.isArray(media) && media.length > 0) {
+      messageData.media = media.map(file => ({
         url: file.url,
         type: file.type,
         filename: file.filename || file.url.split('/').pop(),
         duration: file.duration // Add duration if available
-      }))
-    };
- // Ensure media array has proper structure
- if (messageData.media && messageData.media.length > 0) {
-  messageData.media = messageData.media.map(file => ({
-    url: file.url,
-    type: file.type,
-    filename: file.filename || path.basename(file.url)
-  }));
-}
+      }));
+    }
 
     // Add postReference if provided
     if (postReference && postReference.postId) {
@@ -92,6 +93,12 @@ router.post('/', async (req, res) => {
         username: postReference.username
       };
     }
+
+    console.log('Creating message with data:', {
+      content: messageData.content,
+      mediaCount: messageData.media.length,
+      hasPostRef: !!messageData.postReference
+    });
 
     const newMessage = new Message(messageData);
     const savedMessage = await newMessage.save();
@@ -132,16 +139,16 @@ router.post('/', async (req, res) => {
         messageId: populatedMessage._id
       });
     });
-    // Emit socket event with full message data
-    req.app.get('io').to(conversationId).emit('newMessage', populatedMessage);
 
     res.status(201).json(populatedMessage);
-  } catch (err) {
+  }catch (err) {
     console.error('Error sending message:', err);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ 
+      error: 'Server error',
+      details: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 });
-
 
 // Add these routes to your messages.js file
 
@@ -258,53 +265,6 @@ router.delete('/unsend/:messageId', async (req, res) => {
 });
 
 
-// Mark messages as read
-router.post('/mark-read', async (req, res) => {
-  try {
-    const { conversationId, userId } = req.body;
-    
-    await Message.updateMany(
-      { 
-        conversationId, 
-        senderId: { $ne: userId },
-        read: false 
-      },
-      { $set: { read: true } }
-    );
-    
-    res.status(200).json({ success: true });
-  } catch (err) {
-    console.error('Error marking messages as read:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// Get unread counts for all conversations
-router.get('/conversations/unread', async (req, res) => {
-  try {
-    const { userId } = req.query;
-    
-    const conversations = await Conversation.find({
-      participants: userId
-    }).populate('participants', 'username profilePic');
-    
-    const unreadCounts = {};
-    
-    for (const conv of conversations) {
-      const count = await Message.countDocuments({
-        conversationId: conv._id,
-        senderId: { $ne: userId },
-        read: false
-      });
-      unreadCounts[conv._id] = count;
-    }
-    
-    res.status(200).json(unreadCounts);
-  } catch (err) {
-    console.error('Error getting unread counts:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
 
 router.post('/react', async (req, res) => {
   try {

@@ -107,46 +107,61 @@ const nodemailer = require("nodemailer");
 const User = require("../models/User");
 const auth = require("../middleware/auth");
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 
-// Login router
-router.post("/login", async (req, res) => {
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: 'Too many login attempts from this IP, please try again later',
+  handler: (req, res, next, options) => {
+    console.log(`Rate limit exceeded for IP: ${req.ip}`);
+    res.status(options.statusCode).json({ message: options.message });
+  }
+});
+
+router.post("/login", loginLimiter, async (req, res) => {
   const { email, password } = req.body;
   
   try {
-    console.log("🔍 Login attempt for email:", email);
-    console.log("🔑 Login received password:", password);
-    
-    // Find user by email (lowercase)
+    // Find user
     const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
-      console.log("❌ User not found for email:", email);
       return res.status(400).json({ message: "Invalid credentials" });
     }
-    
-    console.log("✅ User found:", user.username);
-    console.log("🔒 Stored password hash:", user.password);
-    
-    // Try comparing with a fresh hash to verify bcrypt is working properly
-    const salt = await bcrypt.genSalt(10);
-    const freshHash = await bcrypt.hash(password, salt);
-    console.log("🔄 Fresh hash of same password:", freshHash);
-    const testMatch = await bcrypt.compare(password, freshHash);
-    console.log("🧪 Test match with fresh hash:", testMatch);
-    
+
+    // Check if account is locked
+    if (user.lockUntil && user.lockUntil > Date.now()) {
+      const remainingTime = Math.ceil((user.lockUntil - Date.now()) / 1000);
+      return res.status(429).json({ 
+        message: `Account locked. Try again in ${remainingTime} seconds` 
+      });
+    }
+
+    // Add delay based on failed attempts
+    const delay = Math.min(5000, 500 * Math.pow(2, user.failedLoginAttempts || 0));
+    await new Promise(resolve => setTimeout(resolve, delay));
+
     // Compare passwords
     const isMatch = await bcrypt.compare(password, user.password);
-    console.log("🔐 Password match result:", isMatch);
     
     if (!isMatch) {
-      console.log("❌ Password mismatch for user:", user.username);
+      // Update failed attempts
+      user.failedLoginAttempts += 1;
+      if (user.failedLoginAttempts >= 5) {
+        user.lockUntil = Date.now() + 15 * 60 * 1000; // 15 minute lock
+      }
+      await user.save();
+      
       return res.status(400).json({ message: "Invalid credentials" });
     }
-    
-    // Generate JWT token
+
+    // Reset failed attempts on success
+    user.failedLoginAttempts = 0;
+    user.lockUntil = undefined;
+    await user.save();
+
+    // Generate token and respond
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "30d" });
-    console.log("🎟️ JWT token generated successfully");
-    
-    // Send response
     res.json({
       token,
       user: {
@@ -157,10 +172,7 @@ router.post("/login", async (req, res) => {
         cometchatUID: user.cometchatUID
       }
     });
-    
-    console.log("✅ Login successful for:", user.username);
   } catch (error) {
-    console.error("⚠️ Server error during login:", error);
     res.status(500).json({ error: error.message });
   }
 });

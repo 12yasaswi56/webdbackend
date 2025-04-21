@@ -64,10 +64,6 @@ const UserSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-  isPublic: {
-    type: Boolean,
-    default: true
-  },
   cometchatUID: { type: String, unique: true }
 }, {
   resetPasswordToken: {
@@ -78,7 +74,7 @@ const UserSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
-  
+  followRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
 }, {
   timestamps: true
 });

@@ -39,12 +39,13 @@ const fileFilter = (req, file, cb) => {
     'application/msword',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
     if (allowedTypes.includes(file.mimetype)) {
-        cb(null, true);
-      } else {
-        console.log('Rejected file type:', file.mimetype);
-        cb(new Error(`File type ${file.mimetype} not allowed`), false);
-      }
-};
+      cb(null, true);
+    } else {
+      const error = new Error(`Invalid file type: ${file.mimetype}. Only ${allowedTypes.join(', ')} are allowed.`);
+      error.status = 400;
+      cb(error, false);
+    }
+  };
 
 const upload = multer({
   storage,
@@ -86,17 +87,39 @@ router.post('/', upload.array('files', 10), async (req, res) => {
     console.error(`File not actually saved: ${file.path}`);
   }
 });
+ // Verify files were actually written to disk
+ const fileVerification = req.files.map(file => {
+  try {
+    const exists = fs.existsSync(file.path);
+    if (!exists) {
+      throw new Error(`File was not saved: ${file.path}`);
+    }
+    return true;
+  } catch (err) {
+    console.error('File verification error:', err);
+    return false;
+  }
+});
+
+if (fileVerification.includes(false)) {
+  return res.status(500).json({ 
+    error: 'Some files failed to save properly. Please try again.' 
+  });
+}
+    // Process uploaded files with proper type detection
     const uploadedFiles = req.files.map(file => {
-      // Determine the type based on mime type
+      // Determine file type based on mime type
       let type;
-      if (file.mimetype.startsWith('image/')) {
-        type = 'image';
-      } else if (file.mimetype.startsWith('video/')) {
-        type = 'video';
-      } else if (file.mimetype.startsWith('audio/')) {
-        type = 'audio';
-      } else {
-        type = 'document'; // This will catch PDFs and other documents
+      const [mainType] = file.mimetype.split('/');
+      
+      switch(mainType) {
+        case 'image':
+        case 'video':
+        case 'audio':
+          type = mainType;
+          break;
+        default:
+          type = 'document';
       }
 
       return {
@@ -107,11 +130,39 @@ router.post('/', upload.array('files', 10), async (req, res) => {
       };
     });
 
-    res.status(200).json({ files: uploadedFiles });
-  } catch (err) {
-    console.error('Error uploading files:', err);
-    res.status(500).json({ error: 'File upload failed' });
+  // Log successful upload
+  console.log('Successfully uploaded files:', 
+    uploadedFiles.map(f => `${f.filename} (${f.type})`));
+
+  res.status(200).json({ 
+    success: true,
+    files: uploadedFiles 
+  });
+
+} catch (err) {
+  console.error('File upload error:', err);
+  
+  // Clean up any partially uploaded files on error
+  if (req.files && req.files.length > 0) {
+    req.files.forEach(file => {
+      try {
+        if (fs.existsSync(file.path)) {
+          fs.unlinkSync(file.path);
+        }
+      } catch (cleanupErr) {
+        console.error('Error cleaning up file:', cleanupErr);
+      }
+    });
   }
+
+  const status = err.status || 500;
+  const message = err.message || 'File upload failed. Please try again.';
+  
+  res.status(status).json({ 
+    error: message,
+    details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+  });
+}
 });
 
 module.exports = router;
